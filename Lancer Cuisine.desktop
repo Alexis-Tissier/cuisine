@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Cuisine
+Comment=Lancer Cuisine dans le navigateur
+Icon=applications-other
+Terminal=false
+Exec=sh -c 'cd "$(dirname "$0")" && ./launch-cuisine.sh' %k
+Categories=Utility;
+StartupNotify=true

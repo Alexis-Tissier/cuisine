@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "id": "pates-poulet-parmesan",
+  "name": "Pâtes poulet & parmesan",
+  "image": null,
+  "ingredients": [
+    {
+      "id": "pasta",
+      "name": "Pâtes",
+      "quantity": 100,
+      "unit": "g",
+      "aisle": "epicerie",
+      "packageQty": 500,
+      "estimatedPrice": 2.4
+    },
+    {
+      "id": "chicken-breast",
+      "name": "Blanc de poulet",
+      "quantity": 150,
+      "unit": "g",
+      "aisle": "viandes",
+      "packageQty": 300,
+      "estimatedPrice": 12.9
+    },
+    {
+      "id": "parmesan",
+      "name": "Parmesan",
+      "quantity": 25,
+      "unit": "g",
+      "aisle": "frais",
+      "packageQty": 150,
+      "estimatedPrice": 24
+    },
+    {
+      "id": "cream",
+      "name": "Crème",
+      "quantity": 70,
+      "unit": "ml",
+      "aisle": "frais",
+      "packageQty": 200,
+      "estimatedPrice": 5.8
+    }
+  ],
+  "steps": [
+    {
+      "text": "Mettre les pâtes à cuire dans une grande casserole d'eau salée.",
+      "timers": [10]
+    },
+    {
+      "text": "Pendant la cuisson des pâtes, couper {{chicken-breast}} de poulet puis le faire dorer dans une poêle.",
+      "timers": [6]
+    },
+    {
+      "text": "Ajouter {{cream}} de crème et {{parmesan}} de parmesan au poulet puis mélanger à feu doux.",
+      "timers": [3]
+    },
+    {
+      "text": "Égoutter {{pasta}} de pâtes, les ajouter dans la sauce et mélanger avant de servir.",
+      "timers": []
+    }
+  ]
+}

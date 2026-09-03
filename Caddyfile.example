@@ -1,0 +1,5 @@
+# Bloc prévu pour le serveur Oracle
+cuisine.alexis-tissier.fr {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8092
+}

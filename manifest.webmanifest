@@ -1,0 +1,9 @@
+{
+  "name": "Cuisine",
+  "short_name": "Cuisine",
+  "start_url": "./?v=2",
+  "display": "standalone",
+  "background_color": "#f7f3ea",
+  "theme_color": "#f7f3ea",
+  "description": "Mes recettes, mes courses et mon garde-manger."
+}

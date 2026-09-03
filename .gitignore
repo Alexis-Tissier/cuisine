@@ -1,0 +1,13 @@
+# Runtime
+data/
+.venv/
+.cuisine-server.pid
+.cuisine-server.log
+__pycache__/
+*.pyc
+*.sqlite3
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
