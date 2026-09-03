@@ -1,9 +1,9 @@
-const CACHE = 'cuisine-premium-v3-2-20260903';
+const CACHE = 'cuisine-premium-v3-3-20260903';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=3.2.0',
-  './app.js?v=3.2.0',
+  './styles.css?v=3.3.0',
+  './app.js?v=3.3.0',
   './manifest.webmanifest'
 ];
 

@@ -14,6 +14,7 @@
   const uid = prefix => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   const round = (n, d = 0) => Number(Number(n).toFixed(d));
   const fmt = n => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: Number(n) < 10 ? 1 : 0 }).format(Number(n));
+  const fmtMeasure = n => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(n));
   const formatDate = iso => iso ? new Intl.DateTimeFormat('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' }).format(new Date(`${iso}T12:00:00`)) : '';
   const todayISO = () => new Date().toISOString().slice(0,10);
   const daysUntil = iso => {
@@ -28,6 +29,31 @@
     'fruits-legumes':'Fruits & légumes', viandes:'Viandes', poissons:'Poissons', frais:'Produits frais',
     epicerie:'Épicerie', surgeles:'Surgelés', boulangerie:'Boulangerie', autre:'Autres'
   };
+
+  const ALLOWED_UNITS = ['g','ml','unit','tbsp','tsp','pinch'];
+  const UNIT_META = {
+    g:     { base:'g',    factor:1 },
+    ml:    { base:'ml',   factor:1 },
+    unit:  { base:'unit', factor:1 },
+    tbsp:  { base:'ml',   factor:15 },
+    tsp:   { base:'ml',   factor:5 },
+    pinch: { base:'g',    factor:0.3 }
+  };
+  const baseUnit = unit => UNIT_META[unit]?.base || unit;
+  const unitFactor = unit => UNIT_META[unit]?.factor || 1;
+  const toBaseQty = (qty, unit) => Number(qty) * unitFactor(unit);
+  const fromBaseQty = (qty, unit) => Number(qty) / unitFactor(unit);
+  const unitsCompatible = (a, b) => baseUnit(a) === baseUnit(b);
+  const inputStep = unit => ['unit','tbsp','tsp'].includes(unit) ? 0.25 : unit === 'pinch' ? 0.5 : 1;
+  const unitShortLabel = unit => ({unit:'u',tbsp:'c. à soupe',tsp:'c. à café',pinch:'pincée'}[unit] || unit);
+  function estimatedPriceInBase(ingredient){
+    const price = Number(ingredient.estimatedPrice) || 0;
+    if (!price) return 0;
+    if (ingredient.unit === 'g' || ingredient.unit === 'ml' || ingredient.unit === 'unit') return price;
+    const factor = unitFactor(ingredient.unit);
+    if (baseUnit(ingredient.unit) === 'g' || baseUnit(ingredient.unit) === 'ml') return factor > 0 ? price / factor * 1000 : 0;
+    return price;
+  }
 
   const DEMO_RECIPES = [
     {
@@ -177,8 +203,12 @@
   function activeUser(){ return sessionUser; }
   function recipeById(id){ return userData.recipes.find(r => r.id === id); }
   function ingredientQtyLabel(qty, unit){
-    if (unit === 'unit') return `${fmt(qty)} ${qty > 1 ? 'unités' : 'unité'}`;
-    return `${fmt(qty)} ${unit}`;
+    const n = Number(qty);
+    if (unit === 'unit') return `${fmtMeasure(n)} ${Math.abs(n) > 1 ? 'unités' : 'unité'}`;
+    if (unit === 'tbsp') return `${fmtMeasure(n)} c. à soupe`;
+    if (unit === 'tsp') return `${fmtMeasure(n)} c. à café`;
+    if (unit === 'pinch') return `${fmtMeasure(n)} ${Math.abs(n) > 1 ? 'pincées' : 'pincée'}`;
+    return `${fmt(n)} ${unit}`;
   }
   function ingredientLookup(){
     const map = {};
@@ -190,15 +220,20 @@
   function stockTotals(){
     const totals = {};
     userData.pantry.lots.forEach(l => {
-      const k = `${l.ingredientId}__${l.unit}`;
-      totals[k] ||= {ingredientId:l.ingredientId,name:l.name,unit:l.unit,quantity:0,lots:[]};
-      totals[k].quantity += Number(l.quantity);
+      const displayUnit = baseUnit(l.unit);
+      const k = `${l.ingredientId}__${displayUnit}`;
+      totals[k] ||= {ingredientId:l.ingredientId,name:l.name,unit:displayUnit,quantity:0,lots:[]};
+      totals[k].quantity += toBaseQty(l.quantity,l.unit);
       totals[k].lots.push(l);
     });
     return totals;
   }
   function availableQty(id, unit){
-    return userData.pantry.lots.filter(l => l.ingredientId===id && l.unit===unit).reduce((s,l)=>s+Number(l.quantity),0);
+    const targetBase = baseUnit(unit);
+    const baseTotal = userData.pantry.lots
+      .filter(l => l.ingredientId===id && baseUnit(l.unit)===targetBase)
+      .reduce((sum,l)=>sum+toBaseQty(l.quantity,l.unit),0);
+    return fromBaseQty(baseTotal,unit);
   }
   function expiryForIngredient(id){
     const dates = userData.pantry.lots.filter(l=>l.ingredientId===id && l.quantity>0 && l.expiry).map(l=>l.expiry).sort();
@@ -210,6 +245,7 @@
       if (!i.estimatedPrice) return sum;
       if (i.unit==='g') return sum + q/1000*Number(i.estimatedPrice);
       if (i.unit==='ml') return sum + q/1000*Number(i.estimatedPrice);
+      // unit/tbsp/tsp/pinch use an estimated price per displayed measure.
       return sum + q*Number(i.estimatedPrice);
     },0);
   }
@@ -237,9 +273,17 @@
       const recipe = recipeById(entry.recipeId);
       if (!recipe) return;
       recipe.ingredients.forEach(i=>{
-        const k=`${i.id}__${i.unit}`;
-        req[k] ||= { ...i, required:0 };
-        req[k].required += Number(i.quantity)*Number(entry.servings);
+        const normalizedUnit = baseUnit(i.unit);
+        const k=`${i.id}__${normalizedUnit}`;
+        const normalizedPackage = toBaseQty(Number(i.packageQty)||Number(i.quantity)||1,i.unit);
+        req[k] ||= {
+          ...i,
+          unit:normalizedUnit,
+          packageQty:normalizedPackage,
+          estimatedPrice:estimatedPriceInBase(i),
+          required:0
+        };
+        req[k].required += toBaseQty(Number(i.quantity)*Number(entry.servings),i.unit);
       });
     });
     return Object.values(req).map(i=>{
@@ -342,7 +386,7 @@
       <div class="menu-head"><div class="menu-account"><div class="profile-avatar menu-avatar">${esc(user.name[0].toUpperCase())}</div><div><div class="eyebrow">Compte actif</div><h3>${esc(user.name)}</h3></div></div><button class="icon-btn" data-action="close-menu">${icon('close')}</button></div>
       <button class="menu-notification" data-action="notifications">${icon('bell')}<span><strong>Notifications</strong><small>${notifCount?`${notifCount} nouvelle${notifCount>1?'s':''}`:'Tout est à jour'}</small></span>${notifCount?`<span class="menu-count">${notifCount}</span>`:''}</button>
       <div class="menu-list">${navItems.map(([id,ico,label])=>`<button class="menu-link ${ui.page===id?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span>${id==='shopping'&&shoppingCount()?`<span class="menu-count">${shoppingCount()}</span>`:''}</button>`).join('')}</div>
-      <div class="menu-footer"><button class="ghost-btn" data-action="import-recipe">Importer une recette</button><div class="auth-account-note">${icon('checkCircle')}<span>${user.authentik?'Identité vérifiée par Authentik':'Mode local'}</span></div><div class="menu-version">Cuisine · Premium V3.2</div></div>
+      <div class="menu-footer"><button class="ghost-btn" data-action="import-recipe">Importer une recette</button><div class="auth-account-note">${icon('checkCircle')}<span>${user.authentik?'Identité vérifiée par Authentik':'Mode local'}</span></div><div class="menu-version">Cuisine · Premium V3.3</div></div>
     </aside></div>`;
   }
 
@@ -489,7 +533,7 @@
   }
   function shoppingRow(i){
     const price = i.unit==='unit' ? i.buy*i.estimatedPrice : (i.buy/1000)*i.estimatedPrice;
-    return `<div class="shopping-item"><div><strong>${esc(i.name)}</strong><div class="need">Besoin ${ingredientQtyLabel(i.required,i.unit)} · chez toi ${i.have===Infinity?'permanent':ingredientQtyLabel(i.have,i.unit)}</div><span class="package-chip">conditionnement suggéré ${ingredientQtyLabel(i.packageQty,i.unit)}</span></div><div style="text-align:right"><div class="buy">À acheter</div><div class="row" style="justify-content:flex-end;margin-top:6px"><input class="qty-input" type="number" min="0" step="${i.unit==='unit'?1:10}" value="${esc(i.buy)}" data-purchase-key="${esc(i.key)}"><span class="small muted">${esc(i.unit==='unit'?'u':i.unit)}</span></div><div class="small muted" style="margin-top:5px">≈ ${price.toFixed(2).replace('.',',')} €</div></div></div>`;
+    return `<div class="shopping-item"><div><strong>${esc(i.name)}</strong><div class="need">Besoin ${ingredientQtyLabel(i.required,i.unit)} · chez toi ${i.have===Infinity?'permanent':ingredientQtyLabel(i.have,i.unit)}</div><span class="package-chip">conditionnement suggéré ${ingredientQtyLabel(i.packageQty,i.unit)}</span></div><div style="text-align:right"><div class="buy">À acheter</div><div class="row" style="justify-content:flex-end;margin-top:6px"><input class="qty-input" type="number" min="0" step="${i.unit==='unit'?1:10}" value="${esc(i.buy)}" data-purchase-key="${esc(i.key)}"><span class="small muted">${esc(unitShortLabel(i.unit))}</span></div><div class="small muted" style="margin-top:5px">≈ ${price.toFixed(2).replace('.',',')} €</div></div></div>`;
   }
 
   function renderStock(){
@@ -529,7 +573,7 @@
         <button class="settings-row" data-action="import-recipe"><span class="settings-icon">${icon('add')}</span><span><strong>Importer une recette</strong><small>Fichier .txt / JSON généré par l’agent Cuisine</small></span><span class="settings-tail">${icon('arrow')}</span></button>
       </section>
       <section class="section"><div class="section-head"><div><h3>Historique</h3><p>Les versions réellement cuisinées.</p></div></div><div class="list">${userData.history.length?userData.history.slice().reverse().map(historyCard).join(''):`<div class="empty premium-empty"><span class="empty-icon">${icon('recipes')}</span><strong>Pas encore d’historique</strong><span>Les plats terminés apparaîtront ici.</span></div>`}</div></section>
-      <div class="app-footnote"><span class="sync-dot ${serverAvailable?'online':'local'}"></span>${serverAvailable?(u.authentik?'Synchronisé · identité Authentik':'Synchronisé avec le serveur'):'Mode local'} · Cuisine Premium V3.2</div>
+      <div class="app-footnote"><span class="sync-dot ${serverAvailable?'online':'local'}"></span>${serverAvailable?(u.authentik?'Synchronisé · identité Authentik':'Synchronisé avec le serveur'):'Mode local'} · Cuisine Premium V3.3</div>
     `);
   }
   function historyCard(h){
@@ -571,7 +615,7 @@
     }
     if(m.type==='add-stock'){
       const lookup=Object.values(ingredientLookup()).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
-      return modal(`<div class="modal-head"><h3>Ajouter au stock</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><div class="field"><label>Produit</label><select id="stock-ing">${lookup.map(i=>`<option value="${esc(i.id)}">${esc(i.name)}</option>`).join('')}</select></div><div class="row"><div class="field" style="flex:1"><label>Quantité</label><input id="stock-qty" type="number" min="0" value="100"></div><div class="field" style="width:105px"><label>Unité</label><select id="stock-unit"><option>g</option><option>ml</option><option value="unit">unité</option></select></div></div><div class="field"><label>Péremption facultative</label><input id="stock-expiry" type="date"></div><div class="action-stack"><button class="primary" data-action="confirm-add-stock">Ajouter</button></div>`);
+      return modal(`<div class="modal-head"><h3>Ajouter au stock</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><div class="field"><label>Produit</label><select id="stock-ing">${lookup.map(i=>`<option value="${esc(i.id)}">${esc(i.name)}</option>`).join('')}</select></div><div class="row"><div class="field" style="flex:1"><label>Quantité</label><input id="stock-qty" type="number" min="0" value="100"></div><div class="field" style="width:105px"><label>Unité</label><select id="stock-unit"><option value="g">g</option><option value="ml">ml</option><option value="unit">unité</option><option value="tbsp">c. à soupe</option><option value="tsp">c. à café</option><option value="pinch">pincée</option></select></div></div><div class="field"><label>Péremption facultative</label><input id="stock-expiry" type="date"></div><div class="action-stack"><button class="primary" data-action="confirm-add-stock">Ajouter</button></div>`);
     }
     if(m.type==='permanent'){
       const lookup=Object.values(ingredientLookup()).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
@@ -580,7 +624,7 @@
     }
     if(m.type==='cook-weights'){
       const s=ui.cookSession;
-      return modal(`<div class="modal-head"><h3>Quantités réellement utilisées</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><p class="small muted">Tu peux corriger une pesée sans modifier la recette originale.</p>${s.ingredients.map((i,idx)=>`<div class="shopping-item"><div><strong>${esc(i.name)}</strong><div class="need">prévu ${ingredientQtyLabel(i.plannedQuantity,i.unit)}</div></div><div class="row"><input class="qty-input" type="number" min="0" step="${i.unit==='unit'?.25:1}" value="${esc(i.quantity)}" data-cook-qty="${idx}"><span class="small muted">${esc(i.unit==='unit'?'u':i.unit)}</span></div></div>`).join('')}<div class="action-stack"><button class="primary" data-action="save-cook-weights">Enregistrer</button></div>`);
+      return modal(`<div class="modal-head"><h3>Quantités réellement utilisées</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><p class="small muted">Tu peux corriger une pesée sans modifier la recette originale.</p>${s.ingredients.map((i,idx)=>`<div class="shopping-item"><div><strong>${esc(i.name)}</strong><div class="need">prévu ${ingredientQtyLabel(i.plannedQuantity,i.unit)}</div></div><div class="row"><input class="qty-input" type="number" min="0" step="${inputStep(i.unit)}" value="${esc(i.quantity)}" data-cook-qty="${idx}"><span class="small muted">${esc(unitShortLabel(i.unit))}</span></div></div>`).join('')}<div class="action-stack"><button class="primary" data-action="save-cook-weights">Enregistrer</button></div>`);
     }
     if(m.type==='finish-cook'){
       const s=ui.cookSession; const changes=s.ingredients.filter(i=>Math.abs(i.quantity-i.plannedQuantity)>.0001);
@@ -588,7 +632,7 @@
     }
     if(m.type==='edit-base'){
       const r=recipeById(ui.recipeId);
-      return modal(`<div class="modal-head"><h3>Modifier la recette de base</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><p class="small muted">Toutes les quantités ci-dessous sont pour 1 personne.</p>${r.ingredients.map((i,idx)=>`<div class="shopping-item"><div><strong>${esc(i.name)}</strong></div><div class="row"><input class="qty-input" type="number" min="0" step="${i.unit==='unit'?.25:1}" value="${esc(i.quantity)}" data-base-qty="${idx}"><span class="small muted">${esc(i.unit==='unit'?'u':i.unit)}</span></div></div>`).join('')}<div class="action-stack"><button class="primary" data-action="save-base">Enregistrer la recette</button></div>`);
+      return modal(`<div class="modal-head"><h3>Modifier la recette de base</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><p class="small muted">Toutes les quantités ci-dessous sont pour 1 personne.</p>${r.ingredients.map((i,idx)=>`<div class="shopping-item"><div><strong>${esc(i.name)}</strong></div><div class="row"><input class="qty-input" type="number" min="0" step="${inputStep(i.unit)}" value="${esc(i.quantity)}" data-base-qty="${idx}"><span class="small muted">${esc(unitShortLabel(i.unit))}</span></div></div>`).join('')}<div class="action-stack"><button class="primary" data-action="save-base">Enregistrer la recette</button></div>`);
     }
     return '';
   }
@@ -628,8 +672,8 @@
     if(!r?.name) errors.push('name est obligatoire.');
     if(!Array.isArray(r?.ingredients)||!r.ingredients.length) errors.push('ingredients doit contenir au moins un ingrédient.');
     else r.ingredients.forEach((i,idx)=>{
-      if(!i.id||!i.name||!['g','ml','unit'].includes(i.unit)||!(Number(i.quantity)>0)) errors.push(`Ingrédient ${idx+1} invalide.`);
-      if(i.unit!=='unit' && !Number(i.packageQty)) errors.push(`Conditionnement manquant pour ${i.name||`ingrédient ${idx+1}`}.`);
+      if(!i.id||!i.name||!ALLOWED_UNITS.includes(i.unit)||!(Number(i.quantity)>0)) errors.push(`Ingrédient ${idx+1} invalide.`);
+      if(!(Number(i.packageQty)>0)) errors.push(`Conditionnement manquant pour ${i.name||`ingrédient ${idx+1}`}.`);
     });
     if(!Array.isArray(r?.steps)||!r.steps.length) errors.push('steps doit contenir au moins une étape.');
     return errors;
@@ -657,13 +701,22 @@
   }
   function deductFromPantry(ingredient){
     if(permanentSet().has(ingredient.id)) return;
-    let left=Number(ingredient.quantity);
-    const lots=userData.pantry.lots.filter(l=>l.ingredientId===ingredient.id&&l.unit===ingredient.unit&&l.quantity>0).sort((a,b)=>{
-      const ea=a.expiry||'9999-12-31', eb=b.expiry||'9999-12-31';
-      if(ea!==eb) return ea.localeCompare(eb);
-      return (a.addedAt||'').localeCompare(b.addedAt||'');
-    });
-    for(const lot of lots){ if(left<=0) break; const take=Math.min(left,Number(lot.quantity)); lot.quantity=Number(lot.quantity)-take; left-=take; }
+    const targetBase = baseUnit(ingredient.unit);
+    let leftBase = toBaseQty(ingredient.quantity,ingredient.unit);
+    const lots=userData.pantry.lots
+      .filter(l=>l.ingredientId===ingredient.id&&baseUnit(l.unit)===targetBase&&l.quantity>0)
+      .sort((a,b)=>{
+        const ea=a.expiry||'9999-12-31', eb=b.expiry||'9999-12-31';
+        if(ea!==eb) return ea.localeCompare(eb);
+        return (a.addedAt||'').localeCompare(b.addedAt||'');
+      });
+    for(const lot of lots){
+      if(leftBase<=0) break;
+      const lotBase=toBaseQty(lot.quantity,lot.unit);
+      const takeBase=Math.min(leftBase,lotBase);
+      lot.quantity=Math.max(0,Number(lot.quantity)-fromBaseQty(takeBase,lot.unit));
+      leftBase-=takeBase;
+    }
     userData.pantry.lots=userData.pantry.lots.filter(l=>Number(l.quantity)>.0001);
   }
   function finishCook(applyBase){

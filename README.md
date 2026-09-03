@@ -2,6 +2,22 @@
 
 Application web personnelle de recettes, courses et garde-manger, pensée mobile-first et adaptée au desktop.
 
+## V3.3 — cuillères et pincées natives
+
+Cuisine accepte maintenant les six unités de recette : `g`, `ml`, `unit`, `tbsp`, `tsp` et `pinch`.
+
+- `tbsp` s’affiche comme **c. à soupe** ;
+- `tsp` s’affiche comme **c. à café** ;
+- `pinch` s’affiche comme **pincée** ;
+- les portions multiplient correctement ces mesures ;
+- le mode cuisine et les modifications de quantité les conservent ;
+- le garde-manger sait comparer une recette en cuillères avec un stock en ml ;
+- les courses fusionnent `tbsp`/`tsp` vers les ml et `pinch` vers les grammes ;
+- conventions de conversion pour le stock et les courses : `1 tbsp = 15 ml`, `1 tsp = 5 ml`, `1 pinch ≈ 0,3 g` ;
+- la consommation du stock reste FIFO par date de péremption, même si les unités de la recette et du lot diffèrent.
+
+Pour les coûts estimés, `estimatedPrice` reste en €/kg pour `g`, €/L pour `ml`, €/unité pour `unit`, et en €/mesure pour `tbsp`, `tsp` et `pinch`.
+
 ## V3.2 — comptes Authentik natifs
 
 En production, Cuisine ne possède plus de sélecteur de compte interne.
@@ -36,9 +52,15 @@ En production, Cuisine ne possède plus de sélecteur de compte interne.
 - base persistante : `/var/lib/cuisine/cuisine.sqlite3`
 - reverse proxy + Authentik : Caddy
 
-## Mise à jour Oracle
+## Mise à jour Oracle + GitHub
 
-Depuis ce dossier :
+Pour déployer la V3.3 et pousser le même code sur GitHub en une seule commande :
+
+```bash
+./finaliser-v3.3.sh
+```
+
+Pour mettre à jour uniquement Oracle :
 
 ```bash
 ./update-oracle-server.sh

@@ -154,7 +154,7 @@ def health() -> dict[str, Any]:
     return {
         "ok": True,
         "app": "Cuisine",
-        "version": "3.2",
+        "version": "3.3",
         "storage": str(DB_PATH),
         "auth_required": REQUIRE_AUTH,
     }
@@ -179,7 +179,7 @@ def write_my_state(request: Request, payload: StatePayload) -> dict[str, bool]:
     return {"ok": True}
 
 
-# Deliberately no /api/users/{id} endpoint in V3.2.
+# Deliberately no /api/users/{id} endpoint since V3.2.
 # The browser can only read/write the identity authenticated by Authentik.
 
 STATIC_FILES = {

@@ -3,7 +3,7 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="Alexis-Tissier/cuisine"
 
-echo "=== Cuisine Premium V3.2 ==="
+echo "=== Cuisine Premium V3.3 ==="
 echo "1. Déploiement Authentik-native sur Oracle"
 echo "2. Mise à jour du repo GitHub si gh est connecté"
 echo
@@ -39,10 +39,10 @@ git add -A
 if git diff --cached --quiet; then
   echo "✅ GitHub est déjà à jour."
 else
-  git commit -m "Release Cuisine Premium V3.2 — Authentik native"
+  git commit -m "Release Cuisine Premium V3.3 — tbsp tsp pinch"
   git push origin main
   echo "✅ GitHub mis à jour : https://github.com/$REPO"
 fi
 
 echo
-echo "✅ Cuisine V3.2 terminée."
+echo "✅ Cuisine V3.3 terminée."

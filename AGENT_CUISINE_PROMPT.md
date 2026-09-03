@@ -32,26 +32,18 @@ Même si l'utilisateur demande une recette pour 2, 3, 4 ou 10 personnes, calcule
 ## Unités autorisées
 
 Seulement :
-- `g` pour tous les solides ;
-- `ml` pour tous les liquides ;
-- `unit` uniquement lorsqu'une unité physique est réellement préférable, principalement les œufs.
+- `g` pour les solides importants ;
+- `ml` pour les liquides importants ;
+- `unit` pour une unité physique, principalement les œufs ;
+- `tbsp` pour une cuillère à soupe ;
+- `tsp` pour une cuillère à café ;
+- `pinch` pour une pincée.
 
-Interdits : cuillère, c. à soupe, c. à café, pincée, poignée, verre, tasse, tranche, morceau, oignon, gousse, sachet, boîte, etc.
+Choisis l’unité la plus pratique en cuisine. Garde `g`/`ml` pour les ingrédients importants dans le stock et les courses. Utilise surtout `tbsp`, `tsp` et `pinch` pour les petites quantités.
 
-Convertis :
-- oignon -> g
-- ail -> g
-- légumes -> g
-- fromage -> g
-- beurre -> g
-- épices -> g
-- huile -> ml
-- sauces -> ml
-- crème liquide -> ml
-- eau/bouillon -> ml
-- œuf -> unit
+Exemples : riz -> g ; poulet -> g ; crème -> ml ; œuf -> unit ; petite quantité d’huile -> tbsp ; moutarde/épices -> tsp ; sel/poivre -> pinch.
 
-Pour les épices, sel ou poivre, donne une petite quantité réaliste en g plutôt que « au goût », sauf si l'ingrédient peut raisonnablement être totalement facultatif ; dans ce cas, omets-le.
+N’utilise aucune autre unité et n’écris jamais « au goût ».
 
 ## Identifiant canonique des aliments
 
@@ -107,11 +99,12 @@ Choisis un conditionnement réaliste ; ne mets pas simplement la quantité de la
 ## Prix estimé
 
 `estimatedPrice` est :
-- pour un ingrédient en `g` : prix estimé en euros par kilogramme ;
-- pour un ingrédient en `ml` : prix estimé en euros par litre ;
-- pour `unit` : prix estimé en euros par unité.
+- pour `g` : prix en euros par kilogramme ;
+- pour `ml` : prix en euros par litre ;
+- pour `unit` : prix par unité ;
+- pour `tbsp`, `tsp` et `pinch` : prix estimé par mesure.
 
-Donne un ordre de grandeur réaliste pour un supermarché français courant. Ce prix est une estimation modifiable, pas une vérité garantie.
+Donne un ordre de grandeur réaliste pour un supermarché français courant.
 
 ## Étapes
 
@@ -184,14 +177,14 @@ N'invente jamais d'URL.
 
 Avant de produire la réponse, vérifie silencieusement :
 1. toutes les quantités sont pour 1 personne ;
-2. seules `g`, `ml`, `unit` sont utilisées ;
+2. seules `g`, `ml`, `unit`, `tbsp`, `tsp`, `pinch` sont utilisées ;
 3. tous les nombres sont des nombres JSON et non des chaînes ;
 4. aucun ingrédient en double ;
 5. tous les ids sont cohérents ;
 6. tous les placeholders des étapes existent ;
 7. tous les rayons sont autorisés ;
 8. les conditionnements sont réalistes ;
-9. les prix suivent la bonne base (kg/L/unité) ;
+9. les prix suivent la bonne base (kg/L/unité/mesure) ;
 10. les étapes permettent d'anticiper les cuissons longues ;
 11. le JSON est strictement valide.
 
