@@ -5,6 +5,7 @@ APP_DIR="${CUISINE_APP_DIR:-/opt/cuisine}"
 DATA_DIR="${CUISINE_DATA_DIR:-/var/lib/cuisine}"
 PORT="${CUISINE_PORT:-8092}"
 SERVICE_USER="${CUISINE_USER:-$USER}"
+REQUIRE_AUTH="${CUISINE_REQUIRE_AUTH:-1}"
 
 echo "Installation de Cuisine dans $APP_DIR"
 
@@ -45,6 +46,7 @@ Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$APP_DIR
 Environment=CUISINE_DATA_DIR=$DATA_DIR
+Environment=CUISINE_REQUIRE_AUTH=$REQUIRE_AUTH
 ExecStart=$APP_DIR/.venv/bin/uvicorn server:app --host 127.0.0.1 --port $PORT
 Restart=on-failure
 RestartSec=3

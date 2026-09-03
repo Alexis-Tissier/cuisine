@@ -421,3 +421,9 @@ hr.soft { margin: 16px 0; border: 0; border-top: 1px solid var(--line); }
   .recipe-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
   .featured-recipe, .featured-content { min-height: 410px; }
 }
+
+/* V3.2 — identité Authentik native */
+.auth-account-note { min-height: 40px; padding: 0 10px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgba(75,98,72,.12); border-radius: 14px; background: var(--sage-mist); color: var(--sage-deep); font-size: 10px; font-weight: 720; }
+.auth-account-note .icon-svg { width: 15px; height: 15px; }
+.auth-badge { flex: 0 0 auto; min-height: 31px; padding: 0 10px; display: inline-flex !important; align-items: center; gap: 6px; border-radius: 999px; background: var(--sage-mist); color: var(--sage-deep) !important; font-size: 9px !important; font-weight: 780; white-space: nowrap; }
+.auth-badge .icon-svg { width: 14px; height: 14px; }

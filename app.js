@@ -1,7 +1,6 @@
 (() => {
   'use strict';
 
-  const APP_KEY = 'cuisine_global_v1';
   const USER_KEY = id => `cuisine_user_v1_${id}`;
   const $ = sel => document.querySelector(sel);
   const app = $('#app');
@@ -105,64 +104,43 @@
     settings: { name }
   });
 
-  function loadGlobal() {
-    const saved = localStorage.getItem(APP_KEY);
-    if (saved) return JSON.parse(saved);
-    const global = { activeUserId:'alexis', users:[{id:'alexis', name:'Alexis'},{id:'tiphaine', name:'Tiphaine'}] };
-    localStorage.setItem(APP_KEY, JSON.stringify(global));
-    return global;
+  function normalizeUserData(data, name='Utilisateur') {
+    data ||= defaultUserData(name);
+    data.settings ||= {};
+    data.settings.name ||= name;
+    data.settings.seenNotifications ||= [];
+    data.settings.browserNotified ||= [];
+    data.cart ||= [];
+    data.purchaseOverrides ||= {};
+    data.pantry ||= {permanent:[],lots:[]};
+    data.pantry.permanent ||= [];
+    data.pantry.lots ||= [];
+    data.history ||= [];
+    data.recipes ||= [];
+    return data;
   }
-  function loadUser(id) {
+  function loadUser(id, name='Utilisateur') {
     const saved = localStorage.getItem(USER_KEY(id));
-    if (saved) {
-      const data = JSON.parse(saved);
-      data.settings ||= {};
-      data.settings.seenNotifications ||= [];
-      data.settings.browserNotified ||= [];
-      return data;
-    }
-    const user = globalState.users.find(u => u.id === id) || {name:'Utilisateur'};
-    const data = defaultUserData(user.name);
-    data.settings.seenNotifications = [];
-    data.settings.browserNotified = [];
+    if (saved) return normalizeUserData(JSON.parse(saved), name);
+    const data = normalizeUserData(defaultUserData(name), name);
     localStorage.setItem(USER_KEY(id), JSON.stringify(data));
     return data;
   }
+
+  // En production, cette identité est remplacée par /api/me, lui-même alimenté
+  // uniquement par les headers Authentik transmis par Caddy.
+  let sessionUser = {id:'local-alexis', username:'alexis', name:'Alexis', email:'', groups:['local-development'], authentik:false};
   let serverAvailable = false;
+  let userData = loadUser(sessionUser.id, sessionUser.name);
+  let ui = { page:'home', search:'', recipeId:null, servings:1, modal:null, cookSession:null, timer:null, timerInterval:null, stockExpanded:{}, menuOpen:false };
+
   function apiPost(url, state){
     if(!serverAvailable) return;
     fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({state})}).catch(()=>{});
   }
-  function saveGlobal(){
-    localStorage.setItem(APP_KEY, JSON.stringify(globalState));
-    apiPost('/api/global',{users:globalState.users});
-  }
   function saveUser(){
-    localStorage.setItem(USER_KEY(globalState.activeUserId), JSON.stringify(userData));
-    apiPost(`/api/users/${encodeURIComponent(globalState.activeUserId)}/state`,userData);
-  }
-
-  let globalState = loadGlobal();
-  let userData = loadUser(globalState.activeUserId);
-  let ui = { page:'home', search:'', recipeId:null, servings:1, modal:null, cookSession:null, timer:null, timerInterval:null, stockExpanded:{}, menuOpen:false };
-
-  async function syncUserFromServer(id, rerender=true){
-    if(!serverAvailable) return;
-    try{
-      const response=await fetch(`/api/users/${encodeURIComponent(id)}/state`,{cache:'no-store'});
-      if(!response.ok) return;
-      const payload=await response.json();
-      if(payload.state){
-        const data=payload.state;
-        data.settings ||= {};
-        data.settings.seenNotifications ||= [];
-        data.settings.browserNotified ||= [];
-        localStorage.setItem(USER_KEY(id),JSON.stringify(data));
-        if(globalState.activeUserId===id){ userData=data; if(rerender) render(); }
-      }else if(globalState.activeUserId===id){
-        apiPost(`/api/users/${encodeURIComponent(id)}/state`,userData);
-      }
-    }catch(_){ }
+    localStorage.setItem(USER_KEY(sessionUser.id), JSON.stringify(userData));
+    apiPost('/api/me/state',userData);
   }
 
   async function syncFromServer(){
@@ -170,25 +148,33 @@
       const health=await fetch('/api/health',{cache:'no-store'});
       if(!health.ok) return;
       serverAvailable=true;
-      const globalResponse=await fetch('/api/global',{cache:'no-store'});
-      if(globalResponse.ok){
-        const payload=await globalResponse.json();
-        if(payload.state?.users?.length){
-          const previousActive=globalState.activeUserId;
-          globalState.users=payload.state.users;
-          globalState.activeUserId=globalState.users.some(u=>u.id===previousActive)?previousActive:globalState.users[0].id;
-          localStorage.setItem(APP_KEY,JSON.stringify(globalState));
-          userData=loadUser(globalState.activeUserId);
+
+      const meResponse=await fetch('/api/me',{cache:'no-store'});
+      if(!meResponse.ok) throw new Error('Identité Authentik indisponible');
+      sessionUser=await meResponse.json();
+      sessionUser.name ||= sessionUser.username || 'Utilisateur';
+
+      // Le cache local est maintenant lui aussi isolé par identité Authentik.
+      userData=loadUser(sessionUser.id,sessionUser.name);
+
+      const stateResponse=await fetch('/api/me/state',{cache:'no-store'});
+      if(stateResponse.ok){
+        const payload=await stateResponse.json();
+        if(payload.state){
+          userData=normalizeUserData(payload.state,sessionUser.name);
+          localStorage.setItem(USER_KEY(sessionUser.id),JSON.stringify(userData));
         }else{
-          apiPost('/api/global',{users:globalState.users});
+          apiPost('/api/me/state',userData);
         }
       }
-      await syncUserFromServer(globalState.activeUserId,false);
       render();
-    }catch(_){ serverAvailable=false; }
+    }catch(_){
+      serverAvailable=false;
+      render();
+    }
   }
 
-  function activeUser(){ return globalState.users.find(u => u.id === globalState.activeUserId) || globalState.users[0]; }
+  function activeUser(){ return sessionUser; }
   function recipeById(id){ return userData.recipes.find(r => r.id === id); }
   function ingredientQtyLabel(qty, unit){
     if (unit === 'unit') return `${fmt(qty)} ${qty > 1 ? 'unités' : 'unité'}`;
@@ -356,7 +342,7 @@
       <div class="menu-head"><div class="menu-account"><div class="profile-avatar menu-avatar">${esc(user.name[0].toUpperCase())}</div><div><div class="eyebrow">Compte actif</div><h3>${esc(user.name)}</h3></div></div><button class="icon-btn" data-action="close-menu">${icon('close')}</button></div>
       <button class="menu-notification" data-action="notifications">${icon('bell')}<span><strong>Notifications</strong><small>${notifCount?`${notifCount} nouvelle${notifCount>1?'s':''}`:'Tout est à jour'}</small></span>${notifCount?`<span class="menu-count">${notifCount}</span>`:''}</button>
       <div class="menu-list">${navItems.map(([id,ico,label])=>`<button class="menu-link ${ui.page===id?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span>${id==='shopping'&&shoppingCount()?`<span class="menu-count">${shoppingCount()}</span>`:''}</button>`).join('')}</div>
-      <div class="menu-footer"><button class="ghost-btn" data-action="import-recipe">Importer une recette</button><button class="secondary" data-action="switch-account">Changer de compte</button><div class="menu-version">Cuisine · Premium V3</div></div>
+      <div class="menu-footer"><button class="ghost-btn" data-action="import-recipe">Importer une recette</button><div class="auth-account-note">${icon('checkCircle')}<span>${user.authentik?'Identité vérifiée par Authentik':'Mode local'}</span></div><div class="menu-version">Cuisine · Premium V3.2</div></div>
     </aside></div>`;
   }
 
@@ -376,7 +362,7 @@
       <button class="desktop-notification ${notifCount?'has-notifications':''}" data-action="notifications">${icon('bell')}<span><strong>Notifications</strong><small>${notifCount?`${notifCount} nouvelle${notifCount>1?'s':''}`:'Tout est à jour'}</small></span>${notifCount?`<span class="desktop-count alert">${notifCount}</span>`:''}</button>
       <div class="desktop-nav-bottom">
         <button class="desktop-import" data-action="import-recipe">${icon('add')}<span>Importer une recette</span></button>
-        <button class="desktop-user" data-action="switch-account"><span class="profile-avatar desktop-avatar">${esc(user.name[0].toUpperCase())}</span><span><strong>${esc(user.name)}</strong><small>Changer de compte</small></span>${icon('arrow')}</button>
+        <button class="desktop-user" data-nav="profile"><span class="profile-avatar desktop-avatar">${esc(user.name[0].toUpperCase())}</span><span><strong>${esc(user.name)}</strong><small>${user.email?esc(user.email):user.authentik?'Compte Authentik':'Compte local'}</small></span>${icon('arrow')}</button>
       </div>
     </aside>`;
   }
@@ -535,7 +521,7 @@
     return shell(`
       <section class="hero profile-hero"><div class="eyebrow">Compte</div><h2>${esc(u.name)}</h2><p>Tes recettes, ton stock et ton historique restent séparés des autres comptes.</p></section>
       <section class="profile-summary">
-        <div class="profile-main-card"><div class="profile-avatar profile-avatar-lg">${esc(u.name[0].toUpperCase())}</div><div><strong>${esc(u.name)}</strong><span>Compte personnel</span></div><button class="secondary profile-change-btn" data-action="switch-account">Changer</button></div>
+        <div class="profile-main-card"><div class="profile-avatar profile-avatar-lg">${esc(u.name[0].toUpperCase())}</div><div><strong>${esc(u.name)}</strong><span>${u.email?esc(u.email):u.authentik?'Compte Authentik':'Compte local'}</span></div><span class="auth-badge">${icon('checkCircle')} ${u.authentik?'Authentik':'Local'}</span></div>
         <div class="profile-stats"><div><strong>${userData.recipes.length}</strong><span>recettes</span></div><div><strong>${stockCount}</strong><span>produits</span></div><div><strong>${userData.history.length}</strong><span>préparations</span></div></div>
       </section>
       <section class="section settings-list">
@@ -543,7 +529,7 @@
         <button class="settings-row" data-action="import-recipe"><span class="settings-icon">${icon('add')}</span><span><strong>Importer une recette</strong><small>Fichier .txt / JSON généré par l’agent Cuisine</small></span><span class="settings-tail">${icon('arrow')}</span></button>
       </section>
       <section class="section"><div class="section-head"><div><h3>Historique</h3><p>Les versions réellement cuisinées.</p></div></div><div class="list">${userData.history.length?userData.history.slice().reverse().map(historyCard).join(''):`<div class="empty premium-empty"><span class="empty-icon">${icon('recipes')}</span><strong>Pas encore d’historique</strong><span>Les plats terminés apparaîtront ici.</span></div>`}</div></section>
-      <div class="app-footnote"><span class="sync-dot ${serverAvailable?'online':'local'}"></span>${serverAvailable?'Synchronisé avec le serveur':'Mode local'} · Cuisine Premium V3</div>
+      <div class="app-footnote"><span class="sync-dot ${serverAvailable?'online':'local'}"></span>${serverAvailable?(u.authentik?'Synchronisé · identité Authentik':'Synchronisé avec le serveur'):'Mode local'} · Cuisine Premium V3.2</div>
     `);
   }
   function historyCard(h){
@@ -591,9 +577,6 @@
       const lookup=Object.values(ingredientLookup()).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
       const perm=permanentSet();
       return modal(`<div class="modal-head"><h3>Produits permanents</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><p class="small muted">Cuisine ne les décomptera pas et ne les ajoutera pas aux courses.</p><div class="list">${lookup.map(i=>`<label class="card row"><span>${esc(i.name)}</span><input class="switch" type="checkbox" data-permanent-id="${esc(i.id)}" ${perm.has(i.id)?'checked':''}></label>`).join('')}</div>`);
-    }
-    if(m.type==='switch-account'){
-      return modal(`<div class="modal-head"><h3>Changer de compte</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><div class="list">${globalState.users.map(u=>`<button class="card row" data-user-id="${esc(u.id)}"><div class="row-start"><div class="profile-avatar" style="width:42px;height:42px;border-radius:14px">${esc(u.name[0].toUpperCase())}</div><strong>${esc(u.name)}</strong></div>${u.id===globalState.activeUserId?'<span class="pill good">Actif</span>':''}</button>`).join('')}</div><hr class="soft"><div class="field"><label>Nouveau compte</label><input id="new-account-name" placeholder="Prénom"></div><button class="secondary" data-action="create-account">Créer le compte</button>`);
     }
     if(m.type==='cook-weights'){
       const s=ui.cookSession;
@@ -736,10 +719,6 @@
       if(!(q>0)||!info) return; userData.pantry.lots.push({id:uid('lot'),ingredientId:id,name:info.name,quantity:q,unit,expiry,addedAt:todayISO()}); saveUser(); ui.modal=null; showToast('Ajouté au stock'); render(); return;
     }
     if(action==='manage-permanent'){ ui.modal={type:'permanent'}; render(); return; }
-    if(action==='switch-account'){ ui.menuOpen=false; ui.modal={type:'switch-account'}; render(); return; }
-    if(action==='create-account'){
-      const name=$('#new-account-name').value.trim(); if(!name) return; const id=uid('user'); globalState.users.push({id,name}); globalState.activeUserId=id; saveGlobal(); userData=loadUser(id); saveUser(); ui.modal=null; ui.page='home'; showToast('Compte créé'); render(); return;
-    }
     if(action==='edit-base'){ ui.modal={type:'edit-base'}; render(); return; }
     if(action==='save-base'){
       const r=recipeById(ui.recipeId); document.querySelectorAll('[data-base-qty]').forEach(input=>{ r.ingredients[Number(input.dataset.baseQty)].quantity=Number(input.value); }); saveUser(); ui.modal=null; showToast('Recette de base modifiée'); render(); return;
@@ -759,7 +738,6 @@
     const remove=e.target.closest('[data-remove-cart]'); if(remove){ userData.cart.splice(Number(remove.dataset.removeCart),1); saveUser(); render(); return; }
     const toggle=e.target.closest('[data-toggle-stock]'); if(toggle){ const id=toggle.dataset.toggleStock; ui.stockExpanded[id]=!ui.stockExpanded[id]; render(); return; }
     const del=e.target.closest('[data-delete-lot]'); if(del){ userData.pantry.lots=userData.pantry.lots.filter(l=>l.id!==del.dataset.deleteLot); saveUser(); render(); return; }
-    const user=e.target.closest('[data-user-id]'); if(user){ globalState.activeUserId=user.dataset.userId; saveGlobal(); userData=loadUser(globalState.activeUserId); ui={...ui,page:'home',modal:null,recipeId:null,servings:1,menuOpen:false}; showToast('Compte changé'); render(); syncUserFromServer(globalState.activeUserId); return; }
     const redo=e.target.closest('[data-redo-history]'); if(redo){ const h=userData.history.find(x=>x.id===redo.dataset.redoHistory); const r=h&&recipeById(h.recipeId); if(r){ startCook(r,h.servings,h.ingredients); } return; }
   });
 

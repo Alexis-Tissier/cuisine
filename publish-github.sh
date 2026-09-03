@@ -12,7 +12,7 @@ fi
 if [[ ! -d .git ]]; then
   git init -b main
   git add .
-  git commit -m "Initial release: Cuisine Premium V3.1"
+  git commit -m "Initial release: Cuisine Premium V3.2"
 fi
 
 if command -v gh >/dev/null 2>&1; then

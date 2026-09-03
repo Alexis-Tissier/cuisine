@@ -1,4 +1,5 @@
-Cuisine Premium V3.1
+Cuisine Premium V3.2
 Build: 2026-09-03
 UI: mobile-first + desktop workspace
-Cache: cuisine-premium-v3-1-20260903
+Auth: Authentik-native, profils isolés par identité
+Cache: cuisine-premium-v3-2-20260903
