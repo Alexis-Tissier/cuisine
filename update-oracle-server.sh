@@ -4,7 +4,7 @@ TARGET="${CUISINE_SERVER:-oracle-server}"
 REMOTE_DIR="~/cuisine-update"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🍳 Mise à jour Cuisine V3.3 unités cuisine + Authentik-native sur $TARGET"
+echo "🍳 Mise à jour Cuisine V3.4 unités cuisine + Authentik-native sur $TARGET"
 ssh -o ConnectTimeout=10 "$TARGET" 'echo "✅ SSH OK — $(hostname)"'
 
 echo "📦 Envoi des fichiers…"
@@ -38,7 +38,7 @@ sleep 1
 
 health="$(curl -fsS http://127.0.0.1:8092/api/health)"
 echo "$health"
-echo "$health" | grep -q '"version":"3.3"'
+echo "$health" | grep -q '"version":"3.4"'
 echo "$health" | grep -q '"auth_required":true'
 
 status="$(curl -sS -o /tmp/cuisine-me-check -w '%{http_code}' http://127.0.0.1:8092/api/me)"
@@ -48,7 +48,7 @@ if [[ "$status" != "401" ]]; then
   exit 1
 fi
 
-echo '✅ API V3.3 : identité Authentik obligatoire'
+echo '✅ API V3.4 : identité Authentik obligatoire'
 sudo systemctl is-active --quiet cuisine.service && echo '✅ cuisine.service actif'
 REMOTE
 
@@ -60,5 +60,5 @@ if [[ "$code" != "204" ]]; then
 fi
 
 echo "✅ Outpost Authentik : HTTP 204"
-echo "✅ V3.3 déployée : https://cuisine.alexis-tissier.fr"
+echo "✅ V3.4 déployée : https://cuisine.alexis-tissier.fr"
 echo "ℹ️  Déconnecte/reconnecte Authentik une fois si la page était déjà ouverte."

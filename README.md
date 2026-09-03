@@ -2,7 +2,7 @@
 
 Application web personnelle de recettes, courses et garde-manger, pensée mobile-first et adaptée au desktop.
 
-## V3.3 — cuillères et pincées natives
+## V3.4 — cuillères et pincées natives
 
 Cuisine accepte maintenant les six unités de recette : `g`, `ml`, `unit`, `tbsp`, `tsp` et `pinch`.
 
@@ -54,10 +54,10 @@ En production, Cuisine ne possède plus de sélecteur de compte interne.
 
 ## Mise à jour Oracle + GitHub
 
-Pour déployer la V3.3 et pousser le même code sur GitHub en une seule commande :
+Pour déployer la V3.4 et pousser le même code sur GitHub en une seule commande :
 
 ```bash
-./finaliser-v3.3.sh
+./finaliser-v3.4.sh
 ```
 
 Pour mettre à jour uniquement Oracle :

@@ -154,7 +154,7 @@ def health() -> dict[str, Any]:
     return {
         "ok": True,
         "app": "Cuisine",
-        "version": "3.3",
+        "version": "3.4",
         "storage": str(DB_PATH),
         "auth_required": REQUIRE_AUTH,
     }

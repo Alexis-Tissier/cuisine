@@ -357,6 +357,7 @@
       eat:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>`,
       back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>`,
       close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>`,
+      trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9 7V4.5h6V7"/><path d="m7 7 .7 12.5h8.6L17 7"/><path d="M10 10.5v5.5M14 10.5v5.5"/></svg>`,
       scale:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M6 8h12"/><path d="M8 8l-3 5h6l-3-5Z"/><path d="M16 8l-3 5h6l-3-5Z"/></svg>`,
       search:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>`,
       arrow:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`,
@@ -386,7 +387,7 @@
       <div class="menu-head"><div class="menu-account"><div class="profile-avatar menu-avatar">${esc(user.name[0].toUpperCase())}</div><div><div class="eyebrow">Compte actif</div><h3>${esc(user.name)}</h3></div></div><button class="icon-btn" data-action="close-menu">${icon('close')}</button></div>
       <button class="menu-notification" data-action="notifications">${icon('bell')}<span><strong>Notifications</strong><small>${notifCount?`${notifCount} nouvelle${notifCount>1?'s':''}`:'Tout est à jour'}</small></span>${notifCount?`<span class="menu-count">${notifCount}</span>`:''}</button>
       <div class="menu-list">${navItems.map(([id,ico,label])=>`<button class="menu-link ${ui.page===id?'active':''}" data-nav="${id}">${icon(ico)}<span>${label}</span>${id==='shopping'&&shoppingCount()?`<span class="menu-count">${shoppingCount()}</span>`:''}</button>`).join('')}</div>
-      <div class="menu-footer"><button class="ghost-btn" data-action="import-recipe">Importer une recette</button><div class="auth-account-note">${icon('checkCircle')}<span>${user.authentik?'Identité vérifiée par Authentik':'Mode local'}</span></div><div class="menu-version">Cuisine · Premium V3.3</div></div>
+      <div class="menu-footer"><button class="ghost-btn" data-action="import-recipe">Importer une recette</button><div class="auth-account-note">${icon('checkCircle')}<span>${user.authentik?'Identité vérifiée par Authentik':'Mode local'}</span></div><div class="menu-version">Cuisine · Premium V3.4</div></div>
     </aside></div>`;
   }
 
@@ -501,9 +502,16 @@
         <button class="icon-btn back-floating" data-action="back-recipes">${icon('back')}</button>
       </div>
       <section class="detail-title">
-        <div class="row"><div><h2>${esc(r.name)}</h2><div class="recipe-meta"><span class="pill ${a.coverage>=.999?'good':''}">${a.coverage>=.999?'Disponible avec ton stock':`${a.missing.length} ingrédient${a.missing.length>1?'s':''} à compléter`}</span><span class="pill">≈ ${(calcRecipeCost(r,servings)).toFixed(2).replace('.',',')} €</span></div></div></div>
+        <div class="detail-title-layout">
+          <div class="detail-title-copy"><h2>${esc(r.name)}</h2><div class="recipe-meta"><span class="pill ${a.coverage>=.999?'good':''}">${a.coverage>=.999?'Disponible avec ton stock':`${a.missing.length} ingrédient${a.missing.length>1?'s':''} à compléter`}</span><span class="pill">≈ ${(calcRecipeCost(r,servings)).toFixed(2).replace('.',',')} €</span></div></div>
+          <div class="detail-header-actions">
+            <button class="secondary detail-action-button" data-action="add-cart">${icon('cart')}<span>Ajouter aux courses</span></button>
+            <button class="primary detail-action-button" data-action="start-cook"><span>Cuisiner</span></button>
+            <button class="detail-delete-button" data-action="delete-recipe" aria-label="Supprimer la recette" title="Supprimer la recette">${icon('trash')}</button>
+          </div>
+        </div>
       </section>
-      <section class="section"><div class="row"><div><strong>Portions</strong><div class="small muted">La recette de base reste pour 1 personne.</div></div><div class="servings"><button data-action="servings-minus">−</button><strong>${servings} personne${servings>1?'s':''}</strong><button data-action="servings-plus">+</button></div></div></section>
+      <section class="section portions-section"><div class="row"><div><strong>Portions</strong><div class="small muted">La recette de base reste pour 1 personne.</div></div><div class="servings"><button data-action="servings-minus">−</button><strong>${servings} personne${servings>1?'s':''}</strong><button data-action="servings-plus">+</button></div></div></section>
       <div class="detail-columns">
         <section class="section card detail-panel"><div class="section-head"><div><h3>Ingrédients</h3><p>Quantités calculées pour ${servings}.</p></div><button class="text-btn" data-action="edit-base">Modifier la base</button></div>
           ${r.ingredients.map(i=>`<div class="ingredient-row"><div><strong>${esc(i.name)}</strong><div class="small muted">${esc(AISLE_LABEL[i.aisle]||'Autres')}</div></div><div class="qty">${esc(ingredientQtyLabel(Number(i.quantity)*servings,i.unit))}</div></div>`).join('')}
@@ -512,7 +520,6 @@
           ${r.steps.map((s,idx)=>`<div class="ingredient-row" style="grid-template-columns:30px 1fr"><div class="pill">${idx+1}</div><div class="small" style="font-size:13px;line-height:1.5">${renderStepText(s.text,r.ingredients.map(i=>({...i,quantity:Number(i.quantity)*servings})))}</div></div>`).join('')}
         </section>
       </div>
-      <div class="action-stack two detail-actions"><button class="secondary" data-action="add-cart">Ajouter aux courses</button><button class="primary" data-action="start-cook">Cuisiner</button></div>
     `);
   }
 
@@ -573,7 +580,7 @@
         <button class="settings-row" data-action="import-recipe"><span class="settings-icon">${icon('add')}</span><span><strong>Importer une recette</strong><small>Fichier .txt / JSON généré par l’agent Cuisine</small></span><span class="settings-tail">${icon('arrow')}</span></button>
       </section>
       <section class="section"><div class="section-head"><div><h3>Historique</h3><p>Les versions réellement cuisinées.</p></div></div><div class="list">${userData.history.length?userData.history.slice().reverse().map(historyCard).join(''):`<div class="empty premium-empty"><span class="empty-icon">${icon('recipes')}</span><strong>Pas encore d’historique</strong><span>Les plats terminés apparaîtront ici.</span></div>`}</div></section>
-      <div class="app-footnote"><span class="sync-dot ${serverAvailable?'online':'local'}"></span>${serverAvailable?(u.authentik?'Synchronisé · identité Authentik':'Synchronisé avec le serveur'):'Mode local'} · Cuisine Premium V3.3</div>
+      <div class="app-footnote"><span class="sync-dot ${serverAvailable?'online':'local'}"></span>${serverAvailable?(u.authentik?'Synchronisé · identité Authentik':'Synchronisé avec le serveur'):'Mode local'} · Cuisine Premium V3.4</div>
     `);
   }
   function historyCard(h){
@@ -629,6 +636,12 @@
     if(m.type==='finish-cook'){
       const s=ui.cookSession; const changes=s.ingredients.filter(i=>Math.abs(i.quantity-i.plannedQuantity)>.0001);
       return modal(`<div class="modal-head"><h3>Plat terminé</h3><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><p>Les quantités réellement utilisées seront retirées du garde-manger et cette version sera gardée dans l'historique.</p>${changes.length?`<div class="card"><strong>${changes.length} modification${changes.length>1?'s':''} aujourd'hui</strong>${changes.map(i=>`<div class="small muted" style="margin-top:7px">${esc(i.name)} : ${ingredientQtyLabel(i.plannedQuantity,i.unit)} → <strong>${ingredientQtyLabel(i.quantity,i.unit)}</strong></div>`).join('')}</div>`:''}<div class="checkline section"><input class="checkbox" id="apply-base" type="checkbox"><label for="apply-base"><strong>Modifier aussi la recette de base</strong><div class="small muted">Les quantités actuelles seront divisées par ${s.servings} et deviendront la nouvelle base pour 1 personne.</div></label></div><div class="action-stack"><button class="primary" data-action="confirm-finish-cook">Terminer et mettre le stock à jour</button></div>`);
+    }
+    if(m.type==='delete-recipe'){
+      const r=recipeById(ui.recipeId);
+      if(!r) return '';
+      const inCart=userData.cart.filter(item=>item.recipeId===r.id).length;
+      return modal(`<div class="modal-head"><div><div class="eyebrow danger-eyebrow">Suppression</div><h3>Supprimer cette recette ?</h3></div><button class="icon-btn" data-action="close-modal">${icon('close')}</button></div><div class="delete-recipe-card"><strong>${esc(r.name)}</strong><p>La recette sera retirée de ta bibliothèque${inCart?` et de ${inCart} ajout${inCart>1?'s':''} aux courses`:''}. Ton historique de cuisson restera conservé.</p></div><div class="delete-modal-actions"><button class="ghost-btn" data-action="close-modal">Annuler</button><button class="danger-btn" data-action="confirm-delete-recipe">Supprimer définitivement</button></div>`);
     }
     if(m.type==='edit-base'){
       const r=recipeById(ui.recipeId);
@@ -753,6 +766,13 @@
     if(action==='servings-plus'){ ui.servings+=1; render(); return; }
     if(action==='add-cart'){ addToCart(ui.recipeId,ui.servings); return; }
     if(action==='start-cook'){ const r=recipeById(ui.recipeId); if(r) startCook(r,ui.servings); return; }
+    if(action==='delete-recipe'){ if(recipeById(ui.recipeId)) ui.modal={type:'delete-recipe'}; render(); return; }
+    if(action==='confirm-delete-recipe'){
+      const id=ui.recipeId; const r=recipeById(id); if(!r){ ui.modal=null; nav('recipes'); return; }
+      userData.recipes=userData.recipes.filter(recipe=>recipe.id!==id);
+      userData.cart=userData.cart.filter(item=>item.recipeId!==id);
+      saveUser(); ui.modal=null; ui.recipeId=null; ui.page='recipes'; window.scrollTo({top:0,behavior:'smooth'}); showToast('Recette supprimée'); render(); return;
+    }
     if(action==='import-recipe'){ ui.menuOpen=false; fileInput.click(); render(); return; }
     if(action==='what-can-eat'){ ui.modal={type:'what-can-eat'}; render(); return; }
     if(action==='close-modal'){ ui.modal=null; render(); return; }
@@ -791,7 +811,7 @@
     const remove=e.target.closest('[data-remove-cart]'); if(remove){ userData.cart.splice(Number(remove.dataset.removeCart),1); saveUser(); render(); return; }
     const toggle=e.target.closest('[data-toggle-stock]'); if(toggle){ const id=toggle.dataset.toggleStock; ui.stockExpanded[id]=!ui.stockExpanded[id]; render(); return; }
     const del=e.target.closest('[data-delete-lot]'); if(del){ userData.pantry.lots=userData.pantry.lots.filter(l=>l.id!==del.dataset.deleteLot); saveUser(); render(); return; }
-    const redo=e.target.closest('[data-redo-history]'); if(redo){ const h=userData.history.find(x=>x.id===redo.dataset.redoHistory); const r=h&&recipeById(h.recipeId); if(r){ startCook(r,h.servings,h.ingredients); } return; }
+    const redo=e.target.closest('[data-redo-history]'); if(redo){ const h=userData.history.find(x=>x.id===redo.dataset.redoHistory); if(h){ const r=recipeById(h.recipeId)||{id:h.recipeId,name:h.recipeName,ingredients:h.ingredients.map(i=>({...i,quantity:Number(i.quantity)/Math.max(1,h.servings)})),steps:h.steps}; startCook(r,h.servings,h.ingredients); } return; }
   });
 
   app.addEventListener('input',e=>{
